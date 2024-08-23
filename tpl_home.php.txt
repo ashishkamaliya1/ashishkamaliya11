@@ -1,0 +1,453 @@
+<?php /* Template Name: Home */
+get_header();
+?>
+
+<!-- pagination and filter with acf radio filter -->
+
+    <div class="col-md-12 content">
+        <div class="inner-box content no-right-margin darkviolet">
+            <div class="cvf_pag_loading">
+                <div class="cvf_universal_container">
+                    <div class="cvf-universal-content"></div>
+                </div>
+            </div>
+            
+            <div class="category-filter-container">
+                <?php
+                // Display category filter dropdown
+                $categories = get_categories(array(
+                    'orderby' => 'name',
+                    'order' => 'ASC'
+                ));
+                
+                if (!empty($categories)) :
+                ?>
+                <select id="category-filter">
+                    <option value="">All Categories</option>
+                    <?php foreach ($categories as $category) : ?>
+                        <option value="<?php echo esc_attr($category->slug); ?>"><?php echo esc_html($category->name); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php endif; ?>
+                
+                <?php
+                // Display ACF field filter radio buttons
+                $acf_values = array('old', 'new'); // Replace with your ACF field values or dynamically fetch them if needed
+                ?>
+                <select id="acf-filter">
+                    <option value="">All ACF Values</option>
+                    <?php foreach ($acf_values as $value) : ?>
+                        <option value="<?php echo esc_attr($value); ?>"><?php echo esc_html($value); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>';
+
+            function cvf_load_all_posts(page, category, acf_value) {
+                $(".cvf_pag_loading").fadeIn().css('background', '#ccc');
+
+                var data = {
+                    action: 'demo_pagination_load_posts',
+                    page: page,
+                    category: category, // Pass category filter
+                    acf_value: acf_value // Pass ACF field filter value
+                };
+
+                $.post(ajaxurl, data, function(response) {
+                    $(".cvf_universal_container").html(response);
+                    $(".cvf_pag_loading").css({
+                        'background': 'none',
+                        'transition': 'all 1s ease-out'
+                    });
+                });
+            }
+
+            cvf_load_all_posts(1, '', ''); // Load all posts initially
+
+            // Handle category filter change
+            $(document).on('change', '#category-filter', function() {
+                var category = $(this).val();
+                var acf_value = $('#acf-filter').val();
+                cvf_load_all_posts(1, category, acf_value); // Load posts for selected category and ACF value
+            });
+
+            // Handle ACF filter change
+            $(document).on('change', '#acf-filter', function() {
+                var acf_value = $(this).val();
+                var category = $('#category-filter').val();
+                cvf_load_all_posts(1, category, acf_value); // Load posts for selected ACF value and category
+            });
+
+            // Handle pagination click
+            $(document).on('click', '.cvf-universal-pagination li.active', function() {
+                var page = $(this).attr('p');
+                var category = $('#category-filter').val();
+                var acf_value = $('#acf-filter').val();
+                cvf_load_all_posts(page, category, acf_value); // Load posts for selected page, category, and ACF value
+            });
+        });
+    </script>
+
+
+    <?php 
+    // AJAX action handler for loading posts with category and ACF filter
+    add_action('wp_ajax_demo_pagination_load_posts', 'cvf_demo_pagination_load_posts');
+    add_action('wp_ajax_nopriv_demo_pagination_load_posts', 'cvf_demo_pagination_load_posts');
+
+    function cvf_demo_pagination_load_posts() {
+        if (isset($_POST['page'])) {
+            $page = intval($_POST['page']);
+            $per_page = 2;
+            $offset = ($page - 1) * $per_page;
+
+            // Category filter
+            $category = isset($_POST['category']) ? sanitize_text_field($_POST['category']) : '';
+
+            // ACF field filter
+            $acf_value = isset($_POST['acf_value']) ? sanitize_text_field($_POST['acf_value']) : '';
+
+            $args = array(
+                'post_type' => 'post',
+                'post_status' => 'publish',
+                'orderby' => 'post_date',
+                'order' => 'DESC',
+                'posts_per_page' => $per_page,
+                'offset' => $offset,
+                'category_name' => $category,
+            );
+
+            if (!empty($acf_value)) {
+                $args['meta_query'] = array(
+                    array(
+                        'key' => 'wich_product', // Replace with your ACF field name
+                        'value' => $acf_value, // Filter by ACF field value
+                        'compare' => '='
+                    )
+                );
+            }
+
+            $all_blog_posts = new WP_Query($args);
+            $total_posts = $all_blog_posts->found_posts;
+            $no_of_paginations = ceil($total_posts / $per_page);
+
+            $msg = '';
+            if ($all_blog_posts->have_posts()) :
+                while ($all_blog_posts->have_posts()) : $all_blog_posts->the_post();
+                    $msg .= '
+                    <div class="col-md-12">
+                        <h2><a href="' . get_permalink() . '">' . get_the_title() . '</a></h2>
+                        <p>' . get_the_excerpt() . '</p>
+                        <p>' . get_the_content() . '</p>
+                    </div>';
+                endwhile;
+                wp_reset_postdata();
+            else :
+                $msg = '<div class="col-md-12"><p>No posts found.</p></div>';
+            endif;
+
+            $pagination = "<div class='cvf-universal-pagination'><ul>";
+
+            if ($page > 1) {
+                $pagination .= "<li p='1' class='active'>First</li>";
+                $pagination .= "<li p='" . ($page - 1) . "' class='active'>Previous</li>";
+            }
+
+            for ($i = 1; $i <= $no_of_paginations; $i++) {
+                if ($page == $i) {
+                    $pagination .= "<li p='$i' class='selected'>{$i}</li>";
+                } else {
+                    $pagination .= "<li p='$i' class='active'>{$i}</li>";
+                }
+            }
+
+            if ($page < $no_of_paginations) {
+                $pagination .= "<li p='" . ($page + 1) . "' class='active'>Next</li>";
+                $pagination .= "<li p='$no_of_paginations' class='active'>Last</li>";
+            }
+
+            $pagination .= "</ul></div>";
+
+            echo '<div class="cvf-pagination-content">' . $msg . '</div><div class="cvf-pagination-nav">' . $pagination . '</div>';
+        }
+        exit();
+    }
+
+    ?>
+
+<!-- pagination and filter with acf radio filter end -->
+
+
+
+
+
+
+
+
+
+<!-- ajax load more -->
+
+
+
+    <?php 
+
+
+    <?php 
+    $display_post=(get_field('show_post_per_page','option'))?get_field('show_post_per_page','option'):6;
+    $args = array(
+        'post_type' => 'post',
+        'post_status ' => 'publish',
+        // 'orderby' => 'date',
+        'order' => 'DESC',
+        'posts_per_page' => $display_post,
+        'post_status' =>'publish',
+        'paged' => 1,
+    );
+    $publications = new WP_Query($args);
+    $max_p = $publications->max_num_pages;
+    if ($publications->have_posts()) {
+    ?>
+    <div class="news-main">
+        <img src="<?php echo THEME_IMG ?>/news-main-bg.svg" alt="bg" class="img-fluid banner-design-line">
+        <div class="container">
+            <div class="news-section">
+                <div class="news-heading section-title">
+                    <h2><?php echo get_the_title($posts_page_id) ?></h2>
+                </div>
+                <div class="news-card-list">
+                    <div class="row more-project">
+                        <?php
+                            while ($publications->have_posts()) {
+                            $publications->the_post();
+                            $count+=1;
+                        ?>
+                        <div class="col-xxl-4 col-xl-4 col-lg-4 col-md-6 col-sm-12 col-12">
+                            <div class="news-card-item">
+                                <div class="news-card-img">
+                                    <a href="<?php echo get_the_permalink(); ?>"><img src="<?php echo get_the_post_thumbnail_url(); ?>" alt="news" class="img-fluid"></a>
+                                    <div class="news-card-date btn btn-green">
+                                        <?php echo get_the_date(); ?>
+                                    </div>
+                                </div>
+                                <div class="news-card-details">
+                                    <div class="news-card-title">
+                                        <a href="<?php echo get_the_permalink( ) ?>"><h3><?php echo get_the_title(); ?></h3></a>
+                                    </div>
+                                    <div class="news-card-text">
+                                        <?php echo apply_filters('the_content',get_the_excerpt()); ?>
+                                    </div>
+                                    <div class="news-card-btn">
+                                        <a href="<?php echo get_the_permalink(); ?>" class="btn-load">Learn More<i class="fa-solid fa-arrow-right"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <?php }; wp_reset_postdata(); ?>
+                
+                    </div>
+                </div>
+                <?php
+                $count_posts = wp_count_posts('post');
+                $total_custom_posts = $count_posts->publish;
+                // echo $total_custom_posts;
+                if ($total_custom_posts>=$count) {
+                    // Render the Load More button
+                ?>
+                <div class="news-load-more text-center">
+                    <a href="#" type="button" class="btn btn-green btn-load">Load More</a>
+                </div>
+            <?php } ?>
+            </div>
+        </div>
+    </div>
+    <?php } ?>
+
+
+    <?php get_footer(); ?>
+    <script>
+    (function($){
+    $(document).ready(function () {
+    let currentPage = 1;
+    $(".btn-load").click(function (e) {
+    e.preventDefault();
+    // alert('clil');
+    var url = '<?php echo admin_url( 'admin-ajax.php' ) ?>';
+    var post_per = <?php echo $display_post; ?>;
+    currentPage++;
+    $(".btn-load").attr('disabled','disabled');
+    $(".btn-load").hide();
+    $.ajax({
+        type: 'POST',
+        url: url,
+        // dataType: 'html',
+        data: {
+            action: 'load_more',
+            paged: currentPage,
+            post_per : post_per
+        },
+        success: function (res) {
+            response = $.parseJSON(res);
+            $('.more-project').append(response.html);
+            $(".btn-load").removeAttr('disabled');
+            $(".btn-load").show();
+            if(currentPage >= response.max) {
+                $('.btn-load').hide();
+            }
+        }
+    });
+    })
+    })
+    })(jQuery);
+    </script>
+
+
+    require_once( get_template_directory().'/admin/ajax.php');
+    add_action('wp_ajax_load_more', 'load_more');
+    add_action('wp_ajax_nopriv_load_more', 'load_more');
+
+    function load_more() {
+        $ajaxposts = new WP_Query([
+        'post_type' => 'post',
+        'posts_per_page' =>$_POST['post_per'],
+        'orderby' => 'date',
+        'order' => 'DESC',
+        'paged' => $_POST['paged'],
+        'post_status' =>'publish',
+        ]);
+        $response = '';
+        $max_pages = $ajaxposts->max_num_pages;
+    
+        if($ajaxposts->have_posts()) {
+        while($ajaxposts->have_posts()) : $ajaxposts->the_post();
+        $response .= ' <div class="col-xxl-4 col-xl-4 col-lg-4 col-md-6 col-sm-12 col-12">';
+        $response.='<div class="news-card-item">';
+            $response.='<div class="news-card-img">';
+                $response.='<a href="'.get_the_permalink(  ).'"><img src="'.get_the_post_thumbnail_url( ).'" alt="news" class="img-fluid"></a>';
+                $response.='<div class="news-card-date btn btn-green">';
+                    $response.=get_the_date();
+                $response.='</div>';
+            $response.='</div>';
+            $response.='<div class="news-card-details">';
+                $response.='<div class="news-card-title">';
+                    $response.='<a href="'.get_the_permalink(  ).'"><h3>'.get_the_title().'</h3></a>';
+                $response.='</div>';
+                $response.='<div class="news-card-text">';
+                    $response.='<p>'.get_the_excerpt().'</p>';
+                $response.='</div>';
+                $response.='<div class="news-card-btn">';
+                    $response.='<a href="'.get_the_permalink(  ).'">Learn More<i class="fa-solid fa-arrow-right"></i></a>';
+                $response.='</div>';
+            $response.='</div>';
+        $response.='</div>';
+    $response.='</div>';
+        endwhile;
+        } else {
+        $response .= '';
+        }	
+        $result = [
+            'max' => $max_pages,
+            'html' => $response,
+        ];
+        
+        echo json_encode($result);
+        exit;
+        
+    };
+
+
+    ?>
+<!-- ajax load more end -->
+
+
+
+<?php get_footer(); ?>
+
+
+
+
+
+<?php 
+$video_url = 'https://www.youtube.com/watch?v='. $video_id; 
+$thumbnail_url = get_youtube_thumbnail($video_url);
+$youtube_image=($youtube_image)?($youtube_image['url']):($thumbnail_url);   
+?>
+
+
+function getYouTubeVideoId($url) {
+    $pattern = '/(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/';
+
+    if (preg_match($pattern, $url, $matches)) {
+        return $matches[1];
+    }
+
+    return null; // Return null if no match is found
+};
+
+function get_youtube_thumbnail($video_url) {
+    // Extract the video ID from the YouTube URL
+    $video_id = '';
+    $parsed_url = parse_url($video_url);
+    
+    if (isset($parsed_url['query'])) {
+        parse_str($parsed_url['query'], $query_params);
+        if (isset($query_params['v'])) {
+            $video_id = $query_params['v'];
+        }
+    } elseif (isset($parsed_url['path'])) {
+        $path_parts = explode('/', trim($parsed_url['path'], '/'));
+        $video_id = end($path_parts);
+    }
+
+    // Generate the thumbnail image URL
+    $thumbnail_url = "https://img.youtube.com/vi/{$video_id}/maxresdefault.jpg";
+
+    return $thumbnail_url;
+}
+
+
+
+
+
+
+$('#read_more_content').each(function() {
+    var $paragraph = $(this);
+
+    $paragraph.expander({
+        expandEffect: 'fadeIn',
+        collapseEffect: 'fadeOut',
+        expandText: '<a href="#" class="read-more  custom-read-more" tabindex="0">Read more</a>',
+        userCollapseText: '<a href="#" class="custom-read-less read-more" tabindex="0">Read less</a>',
+        slicePoint: 232, // Show the first 30 words initially
+        preserveWords: true // Preserve complete words when slicing
+    });
+});
+
+
+
+
+for ($i = 0; $i < $numbers; $i++) {
+    echo '<i class="fas fa-star fa-fw"></i>';
+}
+
+
+
+
+<?php $url = ''; foreach ( $select_holidays_categories as $term ) :
+                                   
+    $layout=get_field( 'layout', $term);
+    $image=get_field( 'image' , $term->taxonomy.'_'.$term->term_id);
+    
+    if(!empty($image)) {
+       $url = $image['url'];
+    } else {
+       $url = DEFAULT_IMG;                                       
+    }
+   ?>
+   <a href="<?php echo get_term_link($term->term_id); ?>"><div class="journey-box">
+
+   <h3><?php echo esc_html( $term->name ); ?></h3>
+
