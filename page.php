@@ -1,4 +1,22 @@
-<?php
+<?php add_filter( 'woocommerce_add_to_cart_fragments', 'iconic_cart_count_fragments', 50);
+
+function iconic_cart_count_fragments( $fragments ) {
+    ob_start();
+    $fragments['div.zi-mini-cart'] ='<div class="zi-mini-cart">';
+    if(WC()->cart->get_cart_contents_count() != 0){
+        $fragments['div.zi-mini-cart'] .= '<div class="cart-count">cart<strong>('. WC()->cart->get_cart_contents_count().')</strong></div>';
+    }else{
+        $fragments['div.zi-mini-cart'] .= '<div class="cart-count">cart<strong>(0)</strong></div>';
+    }
+    $fragments['div.zi-mini-cart'] .= '</div>';
+    return $fragments;
+    ob_get_clean();
+}
+
+function enqueue_wc_cart_fragments() { 
+    wp_enqueue_script( 'wc-cart-fragments' ); 
+}
+add_action( 'wp_enqueue_scripts', 'enqueue_wc_cart_fragments' );
 /**
  * The template for displaying all pages
  *
@@ -35,7 +53,16 @@ if( have_rows('content') )
 	<?php 	the_content(); ?>
 </div>
 <?php
-	
+	<div class="zi-mini-cart">
+                            <?php 
+                                        $pcount = WC()->cart->get_cart_contents_count(); 
+                                        if($pcount > 0) { ?>    
+                                            <div class="cart-count rrrrr"><p>cart</p> (<strong> <?php echo WC()->cart->get_cart_contents_count(); ?> </strong>) </div>
+                                            
+                                        <?php }else{?>
+                                            <div class="cart-count ffff"> <p>cart</p> <strong>(0)</strong></div>
+                                        <?php } ?>
+                                        </div>
 
 }
 ?>
