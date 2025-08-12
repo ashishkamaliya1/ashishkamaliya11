@@ -1,3 +1,7 @@
+https://www.youtube.com/watch?v=qDLePOI9LI0
+
+
+
 <?php add_filter( 'woocommerce_add_to_cart_fragments', 'iconic_cart_count_fragments', 50);
 
 function iconic_cart_count_fragments( $fragments ) {
