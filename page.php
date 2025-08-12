@@ -12,7 +12,7 @@ function iconic_cart_count_fragments( $fragments ) {
     return $fragments;
     ob_get_clean();
 }
-
+https://limewire.com/d/yt9iA#hv97wJwngj
 function enqueue_wc_cart_fragments() { 
     wp_enqueue_script( 'wc-cart-fragments' ); 
 }
